@@ -59,7 +59,8 @@ pub async fn send(
     let sender: Option<(Uuid, Uuid, String)> = sqlx::query_as(
         "SELECT p.id, p.meeting_id, p.display_name FROM meeting_participants p
          JOIN meetings m ON m.id = p.meeting_id
-         WHERE m.code = $1 AND p.identity = $2 AND p.removed_at IS NULL AND m.ended_at IS NULL
+         WHERE m.code = $1 AND p.identity = $2 AND p.status = 'admitted'
+           AND p.removed_at IS NULL AND m.ended_at IS NULL
          ORDER BY p.joined_at DESC LIMIT 1",
     )
     .bind(code)

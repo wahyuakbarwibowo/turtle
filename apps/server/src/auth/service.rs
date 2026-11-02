@@ -71,7 +71,7 @@ pub fn validate_display_name(name: &str) -> AppResult<String> {
     Ok(name.to_string())
 }
 
-async fn hash_blocking(pw: String) -> AppResult<String> {
+pub(crate) async fn hash_blocking(pw: String) -> AppResult<String> {
     tokio::task::spawn_blocking(move || password::hash(&pw))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?

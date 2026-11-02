@@ -15,6 +15,10 @@ pub enum AppError {
     InvalidCredentials,
     #[error("unauthorized")]
     Unauthorized,
+    #[error("this meeting requires a password")]
+    PasswordRequired,
+    #[error("incorrect meeting password")]
+    InvalidPassword,
     #[error("forbidden")]
     Forbidden,
     #[error("not found")]
@@ -43,6 +47,8 @@ impl IntoResponse for AppError {
             Self::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, "validation_error"),
             Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "invalid_credentials"),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
+            Self::PasswordRequired => (StatusCode::UNAUTHORIZED, "password_required"),
+            Self::InvalidPassword => (StatusCode::UNAUTHORIZED, "invalid_password"),
             Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found"),
             Self::Conflict(_) => (StatusCode::CONFLICT, "conflict"),

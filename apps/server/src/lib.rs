@@ -6,6 +6,7 @@ pub mod chat;
 pub mod config;
 pub mod error;
 pub mod meetings;
+pub mod participant;
 pub mod rate_limit;
 pub mod state;
 
@@ -19,9 +20,15 @@ async fn health() -> Json<Value> {
     Json(json!({ "status": "ok" }))
 }
 
+/// Public, non-secret settings the web client needs before sign-in.
+async fn public_config(axum::extract::State(s): axum::extract::State<AppState>) -> Json<Value> {
+    Json(json!({ "allow_guest_create": s.config.allow_guest_create }))
+}
+
 pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/api/config", get(public_config))
         .nest("/api/auth", auth::http::router())
         .nest(
             "/api/meetings",

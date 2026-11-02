@@ -17,6 +17,8 @@ pub struct Config {
     pub livekit_public_url: String,
     pub livekit_api_key: String,
     pub livekit_api_secret: String,
+    /// Let visitors create meetings without an account (Jitsi-style).
+    pub allow_guest_create: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -47,6 +49,7 @@ impl Config {
             livekit_public_url: var("LIVEKIT_PUBLIC_URL")?,
             livekit_api_key: var("LIVEKIT_API_KEY")?,
             livekit_api_secret: var("LIVEKIT_API_SECRET")?,
+            allow_guest_create: var_or("ALLOW_GUEST_CREATE", false)?,
         })
     }
 }
