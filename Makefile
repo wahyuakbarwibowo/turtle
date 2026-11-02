@@ -9,10 +9,10 @@ LIVEKIT_CONFIG := infrastructure/livekit/livekit.dev.yaml
 
 .DEFAULT_GOAL := help
 .PHONY: help setup env infra-up infra-down db-create dev dev-livekit dev-api dev-web \
-        fmt lint typecheck test test-unit e2e check build clean
+        fmt lint typecheck test test-unit e2e e2e-embed check build clean
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # ---------- Setup ----------
 
@@ -69,6 +69,9 @@ test: ## All Rust tests (needs Postgres, Redis and LiveKit running)
 
 e2e: ## Browser E2E with real media (needs `make dev` running + Google Chrome)
 	cd $(WEB) && npm run e2e
+
+e2e-embed: ## Embed SDK E2E (needs TURTLEMEET_API_KEY + TURTLEMEET_WEBHOOK_SECRET, see docs/testing.md)
+	cd $(WEB) && npm run e2e:embed
 
 check: lint typecheck test ## Everything CI runs, except E2E
 
