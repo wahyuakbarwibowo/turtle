@@ -1,19 +1,24 @@
-use axum::{Json, Router, routing::get};
-use serde_json::{Value, json};
+use std::sync::Arc;
 
-async fn health() -> Json<Value> {
-    Json(json!({ "status": "ok" }))
-}
-
-fn app() -> Router {
-    Router::new().route("/health", get(health))
-}
+use server::{AppState, app, config::Config};
 
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     telemetry::init();
-    let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!(%addr, "turtlemeet server listening");
-    axum::serve(listener, app()).await
+    let config = Config::from_env()?;
+
+    let db = database::connect(&config.database_url, config.db_max_connections).await?;
+    database::migrate(&db).await?;
+    let redis =
+        redis::aio::ConnectionManager::new(redis::Client::open(config.redis_url.as_str())?).await?;
+
+    let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
+    tracing::info!(addr = %config.bind_addr, "turtlemeet server listening");
+    let state = AppState {
+        db,
+        redis,
+        config: Arc::new(config),
+    };
+    axum::serve(listener, app(state)).await?;
+    Ok(())
 }
