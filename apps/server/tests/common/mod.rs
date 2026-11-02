@@ -40,6 +40,7 @@ pub async fn test_app() -> Router {
         livekit_public_url: env_or("LIVEKIT_PUBLIC_URL", "ws://127.0.0.1:7880"),
         livekit_api_key: env_or("LIVEKIT_API_KEY", "devkey"),
         livekit_api_secret: env_or("LIVEKIT_API_SECRET", "secret"),
+        allow_guest_create: true,
     };
     let livekit = LiveKit::new(
         &config.livekit_api_url,

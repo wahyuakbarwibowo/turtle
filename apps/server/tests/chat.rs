@@ -18,7 +18,10 @@ async fn participants_chat_and_removed_guest_is_blocked() {
         Some(json!({ "title": "Chat" })),
     )
     .await;
-    let code = m["code"].as_str().expect("code").to_string();
+    let code = m["code"]
+        .as_str()
+        .unwrap_or_else(|| panic!("create failed: {m}"))
+        .to_string();
     let chat = format!("/api/meetings/{code}/chat");
 
     let (_, _, h) = send(
@@ -113,11 +116,12 @@ async fn participants_chat_and_removed_guest_is_blocked() {
     assert_eq!(status, StatusCode::FORBIDDEN);
 
     let guest_identity = g["identity"].as_str().expect("identity");
-    let (status, _, _) = send(
+    let (status, _, _) = send_with(
         &app,
         "POST",
         &format!("/api/meetings/{code}/participants/{guest_identity}/remove"),
-        Some(&host),
+        None,
+        Some(&host_pt),
         None,
     )
     .await;
