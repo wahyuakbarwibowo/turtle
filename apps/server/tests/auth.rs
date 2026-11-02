@@ -81,7 +81,7 @@ async fn rejects_invalid_input_and_anonymous() {
         "POST",
         "/api/auth/register",
         None,
-        Some(json!({ "email": "bad", "password": "x", "display_name": "A" })),
+        Some(json!({ "email": format!("no-at-sign-{}", uuid::Uuid::new_v4()), "password": "x", "display_name": "A" })),
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
