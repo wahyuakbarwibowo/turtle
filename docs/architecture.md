@@ -91,3 +91,12 @@ is known.
 A single Rust binary with modules (`auth`, `meetings`, `chat`, `participant`), each split
 into a `service` (use cases, no HTTP) and an `http` layer. Microservices would add
 operational cost with no benefit at this size.
+
+## 11. Integrations reuse LiveKit-signed tokens and a postMessage SDK
+
+Embed links carry a third LiveKit-signed token kind (`tm_token=embed`, no room grant),
+verified by the join endpoint like the participant token, so there is no extra secret
+or JWT library. Integration meetings refuse every other way in. The SDK is one
+dependency-free file served from `/sdk`; the iframe learns its parent's origin from a
+`hello` handshake rather than trusting `document.referrer`. Webhooks are HMAC-signed and
+retried in-process; a durable queue is deferred until someone needs guaranteed delivery.

@@ -18,9 +18,10 @@ Self-hosted video conferencing: a Jitsi Meet alternative built on a Rust API and
 | Host controls | Lobby (admit/deny), meeting password, mute one / mute everyone, remove, end for all |
 | Everyone | Raise hand, emoji reactions, People panel |
 | Accounts | Register/login with Argon2id, HTTP-only cookie sessions, optional meetings without an account (`ALLOW_GUEST_CREATE`) |
+| Integrations | API keys for other platforms, embed links, iframe SDK with events/commands, HMAC-signed webhooks ([docs](docs/integrations.md)) |
 | Security | Rate limiting (Redis), audit log, CSRF protection, room-scoped tokens, LiveKit secrets never reach the browser |
 
-Not yet: production Docker deployment, recording, embeddable iframe API, E2EE,
+Not yet: production Docker deployment, recording, E2EE,
 background blur, i18n, mobile layout. See [Roadmap](#roadmap).
 
 ## Architecture
@@ -80,7 +81,9 @@ All settings are environment variables (see [`.env.example`](.env.example)).
 | `ALLOW_GUEST_CREATE` | Allow creating meetings without an account | your choice |
 | `SESSION_TTL_HOURS` | Session lifetime (default 168) | |
 | `BIND_ADDR`, `DB_MAX_CONNECTIONS`, `RUST_LOG` | Server tuning and logging | |
+| `PUBLIC_WEB_URL` | Base of embed links returned to integrations | `https://…` |
 | `API_URL` | Where Next.js proxies `/api/*` | internal URL of the API |
+| `EMBED_ALLOWED_ORIGINS` | Who may iframe `/embed/*` (web app) | your integrators' origins |
 
 ## Testing
 
@@ -115,6 +118,5 @@ API endpoints are listed in [docs/api.md](docs/api.md).
    automatic HTTPS, coturn TURN, LiveKit), and a VPS guide for Ubuntu 24.04.
 2. **Phase 8: load test and security review.** Tests at 10/25/50/100 participants,
    measuring CPU, memory, bandwidth, latency and packet loss.
-3. **Next:** dashboard and admin, recording (LiveKit Egress to MinIO), an embeddable
-   iframe API with external JWT auth, background blur, E2EE, Indonesian/English UI,
+3. **Next:** dashboard and admin, recording (LiveKit Egress to MinIO), background blur, E2EE, Indonesian/English UI,
    and a mobile layout.

@@ -74,8 +74,14 @@ Signed-in users who were already admitted once skip the lobby on rejoin.
 | `turtlemeet.lobby` | server | `{}`: hosts should refresh the lobby list |
 | `turtlemeet.reaction` | clients (lossy) | One whitelisted emoji |
 
+## Integrations
+
+Server-to-server API with `Bearer tmk_…` keys, embed links and outgoing webhooks: see
+[integrations.md](integrations.md). `POST /meetings/{code}/join` also accepts
+`{embed_token}`; integration meetings accept nothing else (403).
+
 ## Webhook
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/livekit/webhook` | LiveKit | Signature and body hash verified. Records `left_at` on `participant_left`, `participant_connection_aborted` and `room_finished` |
+| POST | `/livekit/webhook` | LiveKit | Signature and body hash verified. Records `left_at` on `participant_left`, `participant_connection_aborted` and `room_finished`, and relays them to the meeting's integration webhook |

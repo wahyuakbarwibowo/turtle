@@ -24,6 +24,9 @@ truncate tables and can run against a database that already has data.
   - Lobby: waiting participants can't chat or see the lobby; admit and deny; polling.
   - Guest-created meetings with a host secret, including a wrong secret.
   - The public config endpoint.
+- `integrations.rs`: API-key auth and revocation, meeting ownership between
+  integrations, embed links and join (role/identity from the token, plain join closed),
+  ended meetings, and a signed `meeting_ended` webhook to a local receiver.
 - `chat.rs`: send and history order, unauthenticated and invalid tokens, room scoping,
   removed participants can't post.
 
@@ -46,6 +49,18 @@ Steps:
 11. A visitor without an account creates a meeting and is its host.
 
 Screenshots go to `apps/web/e2e/screenshots/` (gitignored).
+
+## Embed E2E (`apps/web/e2e/embed.e2e.mjs`)
+
+```bash
+server integration create e2e-$(date +%s) --webhook-url http://127.0.0.1:4100/hook
+TURTLEMEET_API_KEY=… TURTLEMEET_WEBHOOK_SECRET=… npm run e2e:embed
+```
+
+Plays the integrator: creates a meeting with the API key, embeds two users with the SDK
+from another origin (:4200), checks `joined`/`participantJoined`, `execute("toggleAudio")`,
+that `/join` without a token is 403, `hangup` → `readyToClose`, ending via the API, and
+verifies the HMAC of every webhook received on :4100.
 
 ## Not yet tested
 
