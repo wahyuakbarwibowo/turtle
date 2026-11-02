@@ -23,6 +23,20 @@ pub enum LiveKitError {
     Service(#[from] ServiceError),
     #[error("livekit webhook: {0}")]
     Webhook(#[from] WebhookError),
+    #[error("token is not a {0} token")]
+    WrongTokenKind(&'static str),
+}
+
+/// Attribute marking which of our own token types a JWT is, so one can't stand in for another.
+const TOKEN_KIND_ATTR: &str = "tm_token";
+
+/// Verified claims of one of our app tokens (participant or embed).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AppToken {
+    pub room: String,
+    pub identity: String,
+    pub name: String,
+    pub attributes: std::collections::HashMap<String, String>,
 }
 
 /// Treat "already gone" as success so removal/deletion is idempotent.
@@ -86,12 +100,15 @@ impl LiveKit {
             .to_jwt()?)
     }
 
-    /// Long-lived token proving "identity X is in room Y" to *our* API (chat, etc.).
-    /// It has no `room_join` grant, so LiveKit refuses it for media.
-    pub fn participant_token(
+    /// Signs one of our own app tokens. They carry no `room_join` grant, so LiveKit
+    /// refuses them for media; only our API accepts them.
+    fn app_token(
         &self,
+        kind: &'static str,
         room: &str,
         identity: &str,
+        name: &str,
+        attributes: &[(&str, &str)],
         ttl: Duration,
     ) -> Result<String, LiveKitError> {
         let grants = VideoGrants {
@@ -102,17 +119,65 @@ impl LiveKit {
             can_publish_data: Some(false),
             ..Default::default()
         };
+        let attrs = attributes
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .chain([(TOKEN_KIND_ATTR.to_owned(), kind.to_owned())]);
         Ok(AccessToken::with_api_key(&self.api_key, &self.api_secret)
             .with_identity(identity)
+            .with_name(name)
             .with_ttl(ttl)
+            .with_attributes(attrs)
             .with_grants(grants)
             .to_jwt()?)
     }
 
+    fn verify_app_token(&self, token: &str, kind: &'static str) -> Result<AppToken, LiveKitError> {
+        let claims = TokenVerifier::with_api_key(&self.api_key, &self.api_secret).verify(token)?;
+        if claims.attributes.get(TOKEN_KIND_ATTR).map(String::as_str) != Some(kind)
+            || claims.video.room_join
+        {
+            return Err(LiveKitError::WrongTokenKind(kind));
+        }
+        Ok(AppToken {
+            room: claims.video.room,
+            identity: claims.sub,
+            name: claims.name,
+            attributes: claims.attributes,
+        })
+    }
+
+    /// Long-lived token proving "identity X is in room Y" to *our* API (chat, moderation…).
+    pub fn participant_token(
+        &self,
+        room: &str,
+        identity: &str,
+        ttl: Duration,
+    ) -> Result<String, LiveKitError> {
+        self.app_token("participant", room, identity, "", &[], ttl)
+    }
+
     /// Verifies a token from [`Self::participant_token`]; returns `(room, identity)`.
     pub fn verify_participant_token(&self, token: &str) -> Result<(String, String), LiveKitError> {
-        let claims = TokenVerifier::with_api_key(&self.api_key, &self.api_secret).verify(token)?;
-        Ok((claims.video.room, claims.sub))
+        let t = self.verify_app_token(token, "participant")?;
+        Ok((t.room, t.identity))
+    }
+
+    /// Short-lived token an integrator's backend hands to its user; the embed page
+    /// exchanges it for a join. `role` is "host" or "participant".
+    pub fn embed_token(
+        &self,
+        room: &str,
+        identity: &str,
+        name: &str,
+        role: &str,
+        ttl: Duration,
+    ) -> Result<String, LiveKitError> {
+        self.app_token("embed", room, identity, name, &[("role", role)], ttl)
+    }
+
+    pub fn verify_embed_token(&self, token: &str) -> Result<AppToken, LiveKitError> {
+        self.verify_app_token(token, "embed")
     }
 
     /// Reliable broadcast to every participant in the room on `topic`.
