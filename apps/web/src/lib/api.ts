@@ -104,7 +104,10 @@ export const api = {
   meetings: () => request("/meetings", z.array(meetingSchema)),
   meeting: (code: string) => request(m(code), meetingSchema),
   createMeeting: (title: string) => request("/meetings", createdMeetingSchema, { method: "POST", body: { title } }),
-  join: (code: string, body: { display_name?: string; password?: string; host_secret?: string }) =>
+  join: (
+    code: string,
+    body: { display_name?: string; password?: string; host_secret?: string; embed_token?: string },
+  ) =>
     request(`${m(code)}/join`, joinOutcomeSchema, { method: "POST", body }),
 
   // In-meeting actions authenticate with the participant token from join.

@@ -57,7 +57,8 @@ function Stage() {
   );
 }
 
-export function CallLayout({ join }: { join: JoinInfo }) {
+/** `embedded`: inside a third-party iframe, where invite links don't apply. */
+export function CallLayout({ join, embedded = false }: { join: JoinInfo; embedded?: boolean }) {
   const code = join.meeting.code;
   const isHost = join.role === "host";
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -133,9 +134,11 @@ export function CallLayout({ join }: { join: JoinInfo }) {
                 </span>
               )}
             </button>
-            <button className="lk-button" onClick={copyInvite} aria-label="Copy invite link">
-              <Link2 className="size-4" />
-            </button>
+            {!embedded && (
+              <button className="lk-button" onClick={copyInvite} aria-label="Copy invite link">
+                <Link2 className="size-4" />
+              </button>
+            )}
             <DisconnectButton>Leave</DisconnectButton>
             {isHost && (
               <button
