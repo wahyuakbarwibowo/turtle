@@ -1,0 +1,12 @@
+[package]
+name = "server"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+telemetry.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde_json.workspace = true
