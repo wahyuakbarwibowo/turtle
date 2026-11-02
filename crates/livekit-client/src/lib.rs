@@ -8,12 +8,12 @@ use livekit_api::{
     access_token::{AccessToken, AccessTokenError, TokenVerifier, VideoGrants},
     services::{
         ServerError, ServerErrorCode, ServiceError,
-        room::{RoomClient, SendDataOptions},
+        room::{RoomClient, SendDataOptions, UpdateParticipantOptions},
     },
     webhooks::{WebhookError, WebhookReceiver},
 };
 pub use livekit_protocol::WebhookEvent;
-use livekit_protocol::data_packet::Kind;
+use livekit_protocol::{ParticipantInfo, TrackSource, data_packet::Kind};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LiveKitError {
@@ -73,6 +73,8 @@ impl LiveKit {
             can_publish: Some(true),
             can_subscribe: Some(true),
             can_publish_data: Some(true),
+            // Attributes (role, raised hand) are server-written only; clients must not spoof "host".
+            can_update_own_metadata: Some(false),
             ..Default::default()
         };
         Ok(AccessToken::with_api_key(&self.api_key, &self.api_secret)
@@ -126,6 +128,61 @@ impl LiveKit {
             ..Default::default()
         };
         self.rooms.send_data(room, data, opts).await?;
+        Ok(())
+    }
+
+    /// Server-side mute of a participant's microphone. Remote unmute is not possible,
+    /// so the participant must unmute themselves.
+    pub async fn mute_microphone(&self, room: &str, identity: &str) -> Result<(), LiveKitError> {
+        match self.rooms.get_participant(room, identity).await {
+            Ok(p) => self.mute_mics_of(room, &p).await,
+            // Not connected: nothing to mute.
+            Err(e) => ignore_not_found(Err(e)),
+        }
+    }
+
+    /// Mutes every microphone in the room except `except_identity` (the host).
+    pub async fn mute_all_microphones(
+        &self,
+        room: &str,
+        except_identity: &str,
+    ) -> Result<(), LiveKitError> {
+        for p in self.rooms.list_participants(room).await? {
+            if p.identity != except_identity {
+                self.mute_mics_of(room, &p).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn mute_mics_of(&self, room: &str, p: &ParticipantInfo) -> Result<(), LiveKitError> {
+        for t in p
+            .tracks
+            .iter()
+            .filter(|t| t.source == TrackSource::Microphone as i32 && !t.muted)
+        {
+            ignore_not_found(
+                self.rooms
+                    .mute_published_track(room, &p.identity, &t.sid, true)
+                    .await
+                    .map(|_| ()),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Server-authoritative participant attributes (merged into existing ones).
+    pub async fn set_attributes(
+        &self,
+        room: &str,
+        identity: &str,
+        attributes: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<(), LiveKitError> {
+        let opts = UpdateParticipantOptions {
+            attributes: attributes.into_iter().collect(),
+            ..Default::default()
+        };
+        self.rooms.update_participant(room, identity, opts).await?;
         Ok(())
     }
 
@@ -185,6 +242,10 @@ mod tests {
         assert_eq!(claims.sub, "u-1");
         assert_eq!(claims.video.room, "abc-defg-hij");
         assert!(claims.video.room_join && !claims.video.room_admin);
+        assert!(
+            !claims.video.can_update_own_metadata(),
+            "clients must not set their own role"
+        );
         assert_eq!(
             claims.attributes.get("role").map(String::as_str),
             Some("host")
