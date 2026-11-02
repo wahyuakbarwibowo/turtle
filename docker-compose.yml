@@ -1,0 +1,25 @@
+# Local dev dependencies. App services (server, web, livekit, coturn) get added in Phase 7.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: turtlemeet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-turtlemeet}
+      POSTGRES_DB: turtlemeet
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U turtlemeet"]
+      interval: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:8
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
