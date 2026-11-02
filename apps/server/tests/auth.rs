@@ -1,76 +1,11 @@
 //! End-to-end auth flow against real PostgreSQL + Redis.
 //! Requires TEST_DATABASE_URL and REDIS_URL. Uses unique emails, so no cleanup is needed.
 
-use std::sync::Arc;
+mod common;
 
-use axum::{
-    Router,
-    body::Body,
-    http::{Request, StatusCode, header},
-};
-use http_body_util::BodyExt;
-use serde_json::{Value, json};
-use server::{AppState, app, config::Config};
-use tower::ServiceExt;
-
-async fn test_app() -> Router {
-    let db_url = std::env::var("TEST_DATABASE_URL").expect("set TEST_DATABASE_URL");
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-    let db = database::connect(&db_url, 5).await.expect("connect db");
-    database::migrate(&db).await.expect("migrate");
-    let redis = redis::aio::ConnectionManager::new(
-        redis::Client::open(redis_url.as_str()).expect("redis url"),
-    )
-    .await
-    .expect("connect redis");
-    let config = Config {
-        bind_addr: String::new(),
-        database_url: db_url,
-        db_max_connections: 5,
-        redis_url,
-        cookie_secure: false,
-        session_ttl_hours: 1,
-    };
-    app(AppState {
-        db,
-        redis,
-        config: Arc::new(config),
-    })
-}
-
-async fn send(
-    app: &Router,
-    method: &str,
-    uri: &str,
-    cookie: Option<&str>,
-    body: Option<Value>,
-) -> (StatusCode, Option<String>, Value) {
-    let mut req = Request::builder().method(method).uri(uri);
-    if let Some(c) = cookie {
-        req = req.header(header::COOKIE, c);
-    }
-    let body = match body {
-        Some(b) => {
-            req = req.header(header::CONTENT_TYPE, "application/json");
-            Body::from(b.to_string())
-        }
-        None => Body::empty(),
-    };
-    let res = app
-        .clone()
-        .oneshot(req.body(body).expect("request"))
-        .await
-        .expect("response");
-    let status = res.status();
-    let set_cookie = res
-        .headers()
-        .get(header::SET_COOKIE)
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v.split(';').next().unwrap_or_default().to_string());
-    let bytes = res.into_body().collect().await.expect("body").to_bytes();
-    let json = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
-    (status, set_cookie, json)
-}
+use axum::http::StatusCode;
+use common::{send, test_app};
+use serde_json::json;
 
 #[tokio::test]
 async fn register_login_me_logout() {
