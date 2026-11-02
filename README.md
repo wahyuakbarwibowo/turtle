@@ -3,9 +3,9 @@
 Self-hosted video conferencing: a Jitsi Meet alternative built on a Rust API and the
 [LiveKit](https://livekit.io) SFU. Share a link, join from the browser, no downloads.
 
-> **Status: MVP in development.** Phases 1–6 are done (auth, meetings, video, chat,
-> moderation, lobby). One-command production deployment (Phase 7) and load testing
-> (Phase 8) are next. Capacity has only been tested with 2 participants so far, so
+> **Status: MVP in development.** Auth, meetings, video, chat, moderation, lobby and
+> the integration API + embed SDK are done. One-command production deployment
+> (Phase 7) and load testing (Phase 8) are next. Capacity has only been tested with 2 participants so far, so
 > no capacity claims are made yet.
 
 ## Features
@@ -40,6 +40,20 @@ Browser ── HTTPS ──► Next.js (apps/web) ── /api/* proxy ──► 
 - **Next.js** serves the UI and proxies `/api/*`, so the session cookie stays same-origin.
 
 Design decisions and their reasons are in [docs/architecture.md](docs/architecture.md).
+
+## Embed in your platform
+
+Other apps can create meetings server-to-server and show the call in an iframe,
+like Jitsi's External API:
+
+```js
+// backend: POST /api/integrations/meetings/{code}/tokens  (Bearer tmk_…) → embed_url
+const meet = new TurtleMeetEmbed(document.getElementById("call"), { url: embedUrl });
+meet.on("readyToClose", () => meet.dispose());
+meet.execute("toggleAudio");
+```
+
+Keys, endpoints, events and webhook signatures: [docs/integrations.md](docs/integrations.md).
 
 ## Quick start (local development)
 
@@ -98,8 +112,9 @@ Details, including what each suite covers, are in [docs/testing.md](docs/testing
 
 ```
 apps/
-  server/          Rust API (Axum): auth, meetings, chat, participant auth
-  web/             Next.js app: landing, auth pages, meeting room (LiveKit React)
+  server/          Rust API (Axum): auth, meetings, chat, integrations, CLI
+  web/             Next.js app: landing, auth, meeting room, /embed page
+    public/sdk/    turtlemeet-embed.js (iframe SDK for integrators)
 crates/
   database/        PostgreSQL pool and embedded migrations
   livekit-client/  Thin wrapper over the official LiveKit Rust SDK
@@ -107,10 +122,17 @@ crates/
   common/          Reserved for shared types (currently empty)
 migrations/        SQL migrations, applied on API startup
 infrastructure/    LiveKit dev config
-docs/              Architecture, API reference, testing
+docs/              See the table below
 ```
 
-API endpoints are listed in [docs/api.md](docs/api.md).
+## Documentation
+
+| Doc | For |
+|---|---|
+| [architecture.md](docs/architecture.md) | Design decisions and why |
+| [api.md](docs/api.md) | HTTP endpoints of the web app's API |
+| [integrations.md](docs/integrations.md) | Embedding TurtleMeet in another platform |
+| [testing.md](docs/testing.md) | Test suites and how to run them |
 
 ## Roadmap
 
@@ -118,5 +140,5 @@ API endpoints are listed in [docs/api.md](docs/api.md).
    automatic HTTPS, coturn TURN, LiveKit), and a VPS guide for Ubuntu 24.04.
 2. **Phase 8: load test and security review.** Tests at 10/25/50/100 participants,
    measuring CPU, memory, bandwidth, latency and packet loss.
-3. **Next:** dashboard and admin, recording (LiveKit Egress to MinIO), background blur, E2EE, Indonesian/English UI,
-   and a mobile layout.
+3. **Next:** dashboard and admin, recording (LiveKit Egress to MinIO), background blur,
+   E2EE, Indonesian/English UI, and a mobile layout.
