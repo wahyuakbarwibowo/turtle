@@ -14,6 +14,6 @@ async fn main() -> std::io::Result<()> {
     telemetry::init();
     let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!(%addr, "nusameet server listening");
+    tracing::info!(%addr, "turtlemeet server listening");
     axum::serve(listener, app()).await
 }
