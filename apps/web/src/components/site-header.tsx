@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/session";
 
@@ -40,10 +40,13 @@ export function SiteHeader() {
           </>
         ) : me === null ? (
           <>
-            <Button variant="ghost" render={<Link href="/login" />}>
+            {/* Real links styled as buttons: navigation keeps link semantics for screen readers. */}
+            <Link href="/login" className={buttonVariants({ variant: "ghost" })}>
               Sign in
-            </Button>
-            <Button render={<Link href="/register" />}>Sign up</Button>
+            </Link>
+            <Link href="/register" className={buttonVariants()}>
+              Sign up
+            </Link>
           </>
         ) : null}
       </nav>

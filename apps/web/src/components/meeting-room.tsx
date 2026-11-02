@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 import { CallLayout } from "@/components/call/call-layout";
 import { Logo } from "@/components/site-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ApiError, type JoinInfo, api, hostSecret } from "@/lib/api";
 import { useMe } from "@/lib/session";
 
@@ -271,8 +271,8 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 function HomeButton() {
   return (
-    <Button variant="ghost" render={<Link href="/" />}>
+    <Link href="/" className={buttonVariants({ variant: "ghost" })}>
       Back to home
-    </Button>
+    </Link>
   );
 }
