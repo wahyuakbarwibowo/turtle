@@ -6,10 +6,14 @@ use std::time::Duration;
 pub use livekit_api::services::room::CreateRoomOptions;
 use livekit_api::{
     access_token::{AccessToken, AccessTokenError, TokenVerifier, VideoGrants},
-    services::{ServerError, ServerErrorCode, ServiceError, room::RoomClient},
+    services::{
+        ServerError, ServerErrorCode, ServiceError,
+        room::{RoomClient, SendDataOptions},
+    },
     webhooks::{WebhookError, WebhookReceiver},
 };
 pub use livekit_protocol::WebhookEvent;
+use livekit_protocol::data_packet::Kind;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LiveKitError {
@@ -80,6 +84,51 @@ impl LiveKit {
             .to_jwt()?)
     }
 
+    /// Long-lived token proving "identity X is in room Y" to *our* API (chat, etc.).
+    /// It has no `room_join` grant, so LiveKit refuses it for media.
+    pub fn participant_token(
+        &self,
+        room: &str,
+        identity: &str,
+        ttl: Duration,
+    ) -> Result<String, LiveKitError> {
+        let grants = VideoGrants {
+            room_join: false,
+            room: room.to_owned(),
+            can_publish: Some(false),
+            can_subscribe: Some(false),
+            can_publish_data: Some(false),
+            ..Default::default()
+        };
+        Ok(AccessToken::with_api_key(&self.api_key, &self.api_secret)
+            .with_identity(identity)
+            .with_ttl(ttl)
+            .with_grants(grants)
+            .to_jwt()?)
+    }
+
+    /// Verifies a token from [`Self::participant_token`]; returns `(room, identity)`.
+    pub fn verify_participant_token(&self, token: &str) -> Result<(String, String), LiveKitError> {
+        let claims = TokenVerifier::with_api_key(&self.api_key, &self.api_secret).verify(token)?;
+        Ok((claims.video.room, claims.sub))
+    }
+
+    /// Reliable broadcast to every participant in the room on `topic`.
+    pub async fn broadcast(
+        &self,
+        room: &str,
+        topic: &str,
+        data: Vec<u8>,
+    ) -> Result<(), LiveKitError> {
+        let opts = SendDataOptions {
+            kind: Kind::Reliable,
+            topic: Some(topic.to_owned()),
+            ..Default::default()
+        };
+        self.rooms.send_data(room, data, opts).await?;
+        Ok(())
+    }
+
     /// Idempotent: LiveKit returns the existing room if it already exists.
     pub async fn ensure_room(&self, name: &str, max_participants: u32) -> Result<(), LiveKitError> {
         let opts = CreateRoomOptions {
@@ -139,6 +188,20 @@ mod tests {
         assert_eq!(
             claims.attributes.get("role").map(String::as_str),
             Some("host")
+        );
+        let pt = lk
+            .participant_token("abc-defg-hij", "g-2", Duration::from_secs(60))
+            .expect("participant token");
+        assert_eq!(
+            lk.verify_participant_token(&pt).ok(),
+            Some(("abc-defg-hij".to_string(), "g-2".to_string()))
+        );
+        let pt_claims = TokenVerifier::with_api_key("key", "a-secret-of-at-least-32-characters!")
+            .verify(&pt)
+            .expect("verify");
+        assert!(
+            !pt_claims.video.room_join,
+            "participant token must not grant media"
         );
         assert!(
             TokenVerifier::with_api_key("key", "wrong-secret-wrong-secret-wrong-secret")
