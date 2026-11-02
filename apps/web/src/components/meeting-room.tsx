@@ -7,13 +7,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { DisconnectReason, type RoomOptions, VideoPresets } from "livekit-client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { CallLayout } from "@/components/call/call-layout";
 import { Logo } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { ApiError, type JoinInfo, api } from "@/lib/api";
+import { ApiError, type JoinInfo, api, hostSecret } from "@/lib/api";
 import { useMe } from "@/lib/session";
 
 // Simulcast publishes 3 layers; adaptiveStream subscribes to the layer that fits each tile,
@@ -30,20 +30,42 @@ const ROOM_OPTIONS: RoomOptions = {
 
 type Phase =
   | { kind: "prejoin" }
+  | { kind: "lobby"; participantToken: string; choices: LocalUserChoices }
   | { kind: "in-call"; join: JoinInfo; choices: LocalUserChoices }
+  | { kind: "denied" }
   | { kind: "left"; reason?: DisconnectReason };
 
 export function MeetingRoom() {
   const { code } = useParams<{ code: string }>();
   const { data: me, isPending: meLoading } = useMe();
   const [phase, setPhase] = useState<Phase>({ kind: "prejoin" });
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const meeting = useQuery({ queryKey: ["meeting", code], queryFn: () => api.meeting(code), retry: false });
 
   const join = useMutation({
-    mutationFn: (choices: LocalUserChoices) => api.join(code, choices.username),
-    onSuccess: (join, choices) => setPhase({ kind: "in-call", join, choices }),
-    onError: (e) => toast.error(e.message),
+    mutationFn: (choices: LocalUserChoices) =>
+      api.join(code, {
+        display_name: choices.username,
+        password: password || undefined,
+        host_secret: hostSecret.get(code),
+      }),
+    onSuccess: (outcome, choices) => {
+      setPasswordError(null);
+      setPhase(
+        outcome.status === "admitted"
+          ? { kind: "in-call", join: outcome, choices }
+          : { kind: "lobby", participantToken: outcome.participant_token, choices },
+      );
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && (e.code === "password_required" || e.code === "invalid_password")) {
+        setPasswordError(e.message);
+      } else {
+        toast.error(e.message);
+      }
+    },
   });
 
   if (meeting.isPending || meLoading) return <Centered>Loading…</Centered>;
@@ -87,6 +109,32 @@ export function MeetingRoom() {
     );
   }
 
+  if (phase.kind === "denied") {
+    return (
+      <Centered>
+        <p className="text-lg font-medium">The host didn&apos;t let you in</p>
+        <HomeButton />
+      </Centered>
+    );
+  }
+
+  if (phase.kind === "lobby") {
+    return (
+      <Lobby
+        code={code}
+        title={meeting.data.title}
+        participantToken={phase.participantToken}
+        onAdmitted={(join) => setPhase({ kind: "in-call", join, choices: phase.choices })}
+        onDenied={() => setPhase({ kind: "denied" })}
+        onCancel={() => setPhase({ kind: "prejoin" })}
+      />
+    );
+  }
+
+  // Hosts skip the password: account owners and creators of guest meetings on this browser.
+  const needsPassword =
+    meeting.data.has_password && !(me && me.id === meeting.data.host_id) && !hostSecret.get(code);
+
   if (phase.kind === "prejoin") {
     return (
       <div data-lk-theme="default" className="flex flex-col" style={{ minHeight: "100dvh", background: "var(--lk-bg)" }}>
@@ -98,6 +146,27 @@ export function MeetingRoom() {
             <h1 className="text-2xl font-semibold">{meeting.data.title}</h1>
             <p className="font-mono text-sm opacity-70">{meeting.data.code}</p>
           </div>
+          {needsPassword && (
+            <div className="flex w-full max-w-md flex-col gap-1">
+              <label htmlFor="meeting-password" className="text-sm">
+                Meeting password
+              </label>
+              <input
+                id="meeting-password"
+                type="password"
+                className="lk-form-control"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!passwordError}
+                aria-describedby={passwordError ? "meeting-password-error" : undefined}
+              />
+              {passwordError && (
+                <p id="meeting-password-error" role="alert" className="text-sm text-red-400">
+                  {passwordError}
+                </p>
+              )}
+            </div>
+          )}
           <PreJoin
             // Signed-in users join under their account name; guests must type one.
             defaults={{ username: me?.display_name ?? "" }}
@@ -149,6 +218,50 @@ function InCall({
     >
       <CallLayout join={join} />
     </LiveKitRoom>
+  );
+}
+
+/** Waiting room: polls until the host admits or denies (polling doubles as a presence heartbeat). */
+function Lobby({
+  code,
+  title,
+  participantToken,
+  onAdmitted,
+  onDenied,
+  onCancel,
+}: {
+  code: string;
+  title: string;
+  participantToken: string;
+  onAdmitted: (join: JoinInfo) => void;
+  onDenied: () => void;
+  onCancel: () => void;
+}) {
+  const status = useQuery({
+    queryKey: ["lobby-status", code, participantToken],
+    queryFn: () => api.lobbyStatus(code, participantToken),
+    refetchInterval: 2000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (status.data?.status === "admitted") onAdmitted(status.data);
+    if (status.error instanceof ApiError && status.error.status === 403) onDenied();
+  }, [status.data, status.error, onAdmitted, onDenied]);
+
+  return (
+    <Centered>
+      <p className="text-lg font-medium">Waiting for the host to let you in…</p>
+      <p className="text-muted-foreground">{title}</p>
+      {status.error && !(status.error instanceof ApiError && status.error.status === 403) && (
+        <p role="alert" className="text-sm text-destructive">
+          {status.error.message}
+        </p>
+      )}
+      <Button variant="ghost" onClick={onCancel}>
+        Cancel
+      </Button>
+    </Centered>
   );
 }
 

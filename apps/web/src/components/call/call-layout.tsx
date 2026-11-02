@@ -12,17 +12,20 @@ import {
   ParticipantTile,
   RoomAudioRenderer,
   isTrackReference,
+  useLocalParticipant,
   useParticipants,
   useTracks,
 } from "@livekit/components-react";
 import { useMutation } from "@tanstack/react-query";
-import { Link2, MessageSquare, PhoneOff, Users } from "lucide-react";
+import { Hand, Link2, MessageSquare, PhoneOff, Users } from "lucide-react";
 import { RoomEvent, Track } from "livekit-client";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { type JoinInfo, api } from "@/lib/api";
 
+import { LobbyRequests } from "./lobby-requests";
+import { ReactionOverlay, ReactionPicker, useReactions } from "./reactions";
 import { type Panel, SidePanel } from "./side-panel";
 import { useChat } from "./use-chat";
 
@@ -59,10 +62,18 @@ export function CallLayout({ join }: { join: JoinInfo }) {
   const isHost = join.role === "host";
   const [panel, setPanel] = useState<Panel | null>(null);
   const chat = useChat(code, join.participant_token, panel === "chat");
-  const participantCount = useParticipants().length;
+  const participants = useParticipants();
+  const raisedHands = participants.filter((p) => p.attributes.hand === "1").length;
+  const { localParticipant } = useLocalParticipant();
+  const handUp = localParticipant.attributes.hand === "1";
+  const { floating, react } = useReactions();
 
   const end = useMutation({
-    mutationFn: () => api.endMeeting(code),
+    mutationFn: () => api.endMeeting(code, join.participant_token),
+    onError: (e) => toast.error(e.message),
+  });
+  const hand = useMutation({
+    mutationFn: (raised: boolean) => api.setHand(code, join.participant_token, raised),
     onError: (e) => toast.error(e.message),
   });
 
@@ -80,16 +91,38 @@ export function CallLayout({ join }: { join: JoinInfo }) {
     <LayoutContextProvider>
       <div className="flex h-full min-h-0">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 p-2">
+          <div className="relative min-h-0 flex-1 p-2">
             <Stage />
+            <ReactionOverlay floating={floating} />
+            {isHost && <LobbyRequests code={code} participantToken={join.participant_token} />}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2 p-2">
             <ControlBar
               controls={{ chat: false, settings: false, leave: false }}
               style={{ border: "none", padding: 0 }}
             />
-            <button className="lk-button" aria-pressed={panel === "people"} onClick={() => toggle("people")}>
-              <Users className="size-4" /> {participantCount}
+            <button
+              className="lk-button"
+              aria-pressed={handUp}
+              disabled={hand.isPending}
+              onClick={() => hand.mutate(!handUp)}
+              style={handUp ? { background: "var(--lk-accent-bg)" } : undefined}
+            >
+              <Hand className="size-4" /> {handUp ? "Lower hand" : "Raise hand"}
+            </button>
+            <ReactionPicker onReact={react} />
+            <button
+              className="lk-button"
+              aria-label={`People (${participants.length})`}
+              aria-pressed={panel === "people"}
+              onClick={() => toggle("people")}
+            >
+              <Users className="size-4" /> {participants.length}
+              {raisedHands > 0 && (
+                <span className="flex items-center gap-0.5 rounded-full bg-amber-500 px-1.5 text-xs text-black">
+                  <Hand className="size-3" aria-hidden /> {raisedHands}
+                </span>
+              )}
             </button>
             <button className="lk-button" aria-pressed={panel === "chat"} onClick={() => toggle("chat")}>
               <MessageSquare className="size-4" />
@@ -118,7 +151,15 @@ export function CallLayout({ join }: { join: JoinInfo }) {
           </div>
         </div>
         {panel && (
-          <SidePanel panel={panel} onClose={() => setPanel(null)} code={code} isHost={isHost} chat={chat} />
+          <SidePanel
+            panel={panel}
+            onClose={() => setPanel(null)}
+            code={code}
+            participantToken={join.participant_token}
+            isHost={isHost}
+            meeting={join.meeting}
+            chat={chat}
+          />
         )}
       </div>
       <RoomAudioRenderer />

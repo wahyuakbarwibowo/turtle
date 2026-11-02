@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -8,22 +8,27 @@ import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api, parseMeetingCode } from "@/lib/api";
+import { api, hostSecret, parseMeetingCode } from "@/lib/api";
 import { useMe } from "@/lib/session";
 
 export default function Home() {
   const router = useRouter();
   const { data: me } = useMe();
+  const { data: config } = useQuery({ queryKey: ["config"], queryFn: api.config, staleTime: Infinity });
   const [joinInput, setJoinInput] = useState("");
 
   const create = useMutation({
-    mutationFn: () => api.createMeeting(`${me?.display_name ?? "My"}'s meeting`),
-    onSuccess: (m) => router.push(`/m/${m.code}`),
+    mutationFn: () => api.createMeeting(me ? `${me.display_name}'s meeting` : "TurtleMeet meeting"),
+    onSuccess: (m) => {
+      // Guest-created meetings: this browser keeps the proof of being host.
+      if (m.host_secret) hostSecret.set(m.code, m.host_secret);
+      router.push(`/m/${m.code}`);
+    },
     onError: (e) => toast.error(e.message),
   });
 
   function startMeeting() {
-    if (!me) return router.push("/login?next=/");
+    if (!me && !config?.allow_guest_create) return router.push("/login?next=/");
     create.mutate();
   }
 

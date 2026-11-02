@@ -128,3 +128,9 @@
     @apply font-sans;
   }
 }
+/* Floating reaction emoji (respects prefers-reduced-motion via motion-safe:). */
+@keyframes tm-float {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(-40vh); opacity: 0; }
+}
