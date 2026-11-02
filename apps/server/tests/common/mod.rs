@@ -62,9 +62,24 @@ pub async fn send(
     cookie: Option<&str>,
     body: Option<Value>,
 ) -> (StatusCode, Option<String>, Value) {
+    send_with(app, method, uri, cookie, None, body).await
+}
+
+/// Like `send`, with an optional `Authorization: Bearer` token.
+pub async fn send_with(
+    app: &Router,
+    method: &str,
+    uri: &str,
+    cookie: Option<&str>,
+    bearer: Option<&str>,
+    body: Option<Value>,
+) -> (StatusCode, Option<String>, Value) {
     let mut req = Request::builder().method(method).uri(uri);
     if let Some(c) = cookie {
         req = req.header(header::COOKIE, c);
+    }
+    if let Some(t) = bearer {
+        req = req.header(header::AUTHORIZATION, format!("Bearer {t}"));
     }
     let body = match body {
         Some(b) => {
