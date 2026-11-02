@@ -15,6 +15,7 @@ use super::service::{
 use crate::{
     auth::{CurrentUser, MaybeUser},
     error::{AppError, AppResult},
+    integrations::webhook,
     participant::Participant,
     rate_limit,
     state::AppState,
@@ -54,6 +55,8 @@ struct JoinReq {
     display_name: Option<String>,
     password: Option<String>,
     host_secret: Option<String>,
+    /// From an integration's embed link (`/embed/{code}#t=…`).
+    embed_token: Option<String>,
 }
 
 /// Distinguishes a missing field (leave unchanged) from `null` (clear).
@@ -92,6 +95,8 @@ async fn create(
         title: req.title,
         password: req.password,
         lobby_enabled: req.lobby_enabled,
+        integration_id: None,
+        external_ref: None,
     };
     Ok((
         StatusCode::CREATED,
@@ -122,10 +127,19 @@ async fn join(
         // ponytail: per-meeting bucket also slows legit users during an attack; add per-IP at the edge.
         rate_limit::check(&s.redis, &format!("join_pw:{code}"), 20, 60).await?;
     }
+    let embed = match req.embed_token.as_deref() {
+        Some(t) => Some(
+            s.livekit
+                .verify_embed_token(t)
+                .map_err(|_| AppError::Unauthorized)?,
+        ),
+        None => None,
+    };
     let input = JoinInput {
         guest_name: req.display_name.as_deref(),
         password: req.password.as_deref(),
         host_secret: req.host_secret.as_deref(),
+        embed,
     };
     let outcome = service::join(
         &s.db,
@@ -251,6 +265,7 @@ async fn end(
 ) -> AppResult<StatusCode> {
     p.check_room(&code)?;
     service::end(&s.db, &s.livekit, &code, &p.identity).await?;
+    webhook::dispatch(&s.db, &s.http, &code, "meeting_ended", None).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -268,5 +283,28 @@ async fn webhook(
         AppError::Unauthorized
     })?;
     service::apply_webhook(&s.db, &event).await?;
+    forward_to_integration(&s, &event).await;
     Ok(StatusCode::OK)
+}
+
+/// Relay LiveKit room events to the meeting's integration webhook, if any.
+async fn forward_to_integration(s: &AppState, ev: &livekit_client::WebhookEvent) {
+    let Some(room) = ev.room.as_ref() else { return };
+    let kind = match ev.event.as_str() {
+        "participant_joined" => "participant_joined",
+        "participant_left" | "participant_connection_aborted" => "participant_left",
+        // Fires when the room empties too, so integrators learn the call is over either way.
+        "room_finished" => "meeting_ended",
+        _ => return,
+    };
+    let participant = ev
+        .participant
+        .as_ref()
+        .map(|p| webhook::WebhookParticipant {
+            identity: p.identity.clone(),
+            external_id: None,
+            name: p.name.clone(),
+            role: p.attributes.get("role").cloned().unwrap_or_default(),
+        });
+    webhook::dispatch(&s.db, &s.http, &room.name, kind, participant).await;
 }

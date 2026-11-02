@@ -5,6 +5,7 @@ pub mod auth;
 pub mod chat;
 pub mod config;
 pub mod error;
+pub mod integrations;
 pub mod meetings;
 pub mod participant;
 pub mod rate_limit;
@@ -34,6 +35,7 @@ pub fn app(state: AppState) -> Router {
             "/api/meetings",
             meetings::http::router().merge(chat::http::router()),
         )
+        .nest("/api/integrations", integrations::http::router())
         .nest("/api/livekit/webhook", meetings::http::webhook_router())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

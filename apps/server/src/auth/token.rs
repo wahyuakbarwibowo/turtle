@@ -6,6 +6,10 @@ use sha2::{Digest, Sha256};
 pub fn generate() -> String {
     let mut bytes = [0u8; 32];
     OsRng.fill_bytes(&mut bytes);
+    hex(&bytes)
+}
+
+pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 

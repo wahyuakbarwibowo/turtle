@@ -12,4 +12,6 @@ pub struct AppState {
     pub redis: ConnectionManager,
     pub config: Arc<Config>,
     pub livekit: Arc<LiveKit>,
+    /// Outbound HTTP (integration webhooks). Cheap to clone; shares a connection pool.
+    pub http: reqwest::Client,
 }

@@ -41,6 +41,7 @@ pub async fn test_app() -> Router {
         livekit_api_key: env_or("LIVEKIT_API_KEY", "devkey"),
         livekit_api_secret: env_or("LIVEKIT_API_SECRET", "secret"),
         allow_guest_create: true,
+        public_web_url: "http://localhost:3000".into(),
     };
     let livekit = LiveKit::new(
         &config.livekit_api_url,
@@ -52,6 +53,7 @@ pub async fn test_app() -> Router {
         redis,
         config: Arc::new(config),
         livekit: Arc::new(livekit),
+        http: reqwest::Client::new(),
     })
 }
 

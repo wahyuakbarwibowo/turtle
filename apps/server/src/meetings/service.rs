@@ -98,6 +98,9 @@ pub struct CreateInput {
     pub title: String,
     pub password: Option<String>,
     pub lobby_enabled: bool,
+    /// Set when created through the integration API; such meetings have no account host.
+    pub integration_id: Option<Uuid>,
+    pub external_ref: Option<String>,
 }
 
 #[derive(Default)]
@@ -105,6 +108,9 @@ pub struct JoinInput<'a> {
     pub guest_name: Option<&'a str>,
     pub password: Option<&'a str>,
     pub host_secret: Option<&'a str>,
+    /// Verified embed token minted by an integration: identity, name and role come from it,
+    /// and it skips the password and lobby (the integrator already authorized the user).
+    pub embed: Option<livekit_client::AppToken>,
 }
 
 /// `abc-defg-hij`: 10 random lowercase letters (~47 bits), unguessable enough for invite links.
@@ -142,12 +148,13 @@ pub async fn create(
 ) -> AppResult<CreatedMeeting> {
     let title = validate_title(&input.title)?;
     let password_hash = hash_meeting_password(input.password).await?;
-    let host_secret = host.is_none().then(token::generate);
+    let host_secret = (host.is_none() && input.integration_id.is_none()).then(token::generate);
 
     let mut tx = db.begin().await?;
     let meeting: Meeting = sqlx::query_as(concat!(
-        "INSERT INTO meetings AS m (code, title, host_id, host_secret_hash, password_hash, lobby_enabled)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING ",
+        "INSERT INTO meetings AS m (code, title, host_id, host_secret_hash, password_hash, lobby_enabled,
+                                    integration_id, external_ref)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ",
         meeting_cols!()
     ))
     .bind(generate_code())
@@ -156,6 +163,8 @@ pub async fn create(
     .bind(host_secret.as_deref().map(token::hash))
     .bind(password_hash)
     .bind(input.lobby_enabled)
+    .bind(input.integration_id)
+    .bind(input.external_ref)
     .fetch_one(&mut *tx)
     .await?;
     audit::record(
@@ -248,17 +257,46 @@ pub async fn join(
     if meeting.ended_at.is_some() {
         return Err(AppError::Gone("meeting has ended".into()));
     }
-    let (password_hash, host_secret_hash): (Option<String>, Option<Vec<u8>>) =
-        sqlx::query_as("SELECT password_hash, host_secret_hash FROM meetings WHERE id = $1")
-            .bind(meeting.id)
-            .fetch_one(db)
-            .await?;
+    let (password_hash, host_secret_hash, is_integration): (Option<String>, Option<Vec<u8>>, bool) =
+        sqlx::query_as(
+            "SELECT password_hash, host_secret_hash, integration_id IS NOT NULL FROM meetings WHERE id = $1",
+        )
+        .bind(meeting.id)
+        .fetch_one(db)
+        .await?;
 
-    let is_host = user.is_some_and(|u| Some(u.id) == meeting.host_id)
-        || matches!((input.host_secret, &host_secret_hash), (Some(s), Some(h)) if token::hash(s) == *h);
+    // Integration meetings are only reachable through the integrator's embed links, so a
+    // leaked meeting code alone doesn't let anyone in.
+    if is_integration != input.embed.is_some() {
+        return Err(AppError::Forbidden);
+    }
+    if let Some(e) = &input.embed {
+        if e.room != meeting.code {
+            return Err(AppError::Forbidden);
+        }
+        let removed: bool = sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM meeting_participants
+                            WHERE meeting_id = $1 AND identity = $2 AND removed_at IS NOT NULL)",
+        )
+        .bind(meeting.id)
+        .bind(&e.identity)
+        .fetch_one(db)
+        .await?;
+        if removed {
+            return Err(AppError::Forbidden);
+        }
+    }
 
-    let mut previously_admitted = false;
-    if !is_host {
+    let is_host = match &input.embed {
+        Some(e) => e.attributes.get("role").is_some_and(|r| r == "host"),
+        None => {
+            user.is_some_and(|u| Some(u.id) == meeting.host_id)
+                || matches!((input.host_secret, &host_secret_hash), (Some(s), Some(h)) if token::hash(s) == *h)
+        }
+    };
+
+    let mut previously_admitted = input.embed.is_some();
+    if !is_host && input.embed.is_none() {
         if let Some(u) = user {
             let (removed, admitted): (bool, bool) = sqlx::query_as(
                 "SELECT COALESCE(bool_or(removed_at IS NOT NULL), false),
@@ -286,9 +324,10 @@ pub async fn join(
     }
 
     // Signed-in users keep a stable identity so LiveKit replaces stale connections on rejoin.
-    let (identity, name) = match user {
-        Some(u) => (format!("u-{}", u.id), u.display_name.clone()),
-        None => (
+    let (identity, name) = match (&input.embed, user) {
+        (Some(e), _) => (e.identity.clone(), e.name.clone()),
+        (None, Some(u)) => (format!("u-{}", u.id), u.display_name.clone()),
+        (None, None) => (
             format!("g-{}", Uuid::new_v4()),
             validate_display_name(input.guest_name.unwrap_or_default())?,
         ),
@@ -302,7 +341,7 @@ pub async fn join(
          VALUES ($1, $2, $3, $4, $5::participant_role, $6::participant_status)",
     )
     .bind(meeting.id)
-    .bind(user.map(|u| u.id))
+    .bind(user.filter(|_| input.embed.is_none()).map(|u| u.id))
     .bind(&identity)
     .bind(&name)
     .bind(role)
