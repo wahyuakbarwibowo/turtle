@@ -4,6 +4,7 @@ pub mod audit;
 pub mod auth;
 pub mod config;
 pub mod error;
+pub mod meetings;
 pub mod rate_limit;
 pub mod state;
 
@@ -21,6 +22,8 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .nest("/api/auth", auth::http::router())
+        .nest("/api/meetings", meetings::http::router())
+        .nest("/api/livekit/webhook", meetings::http::webhook_router())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }

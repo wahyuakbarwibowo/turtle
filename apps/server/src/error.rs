@@ -27,6 +27,10 @@ pub enum AppError {
     Database(#[from] sqlx::Error),
     #[error(transparent)]
     Redis(#[from] redis::RedisError),
+    #[error(transparent)]
+    LiveKit(#[from] livekit_client::LiveKitError),
+    #[error("{0}")]
+    Gone(String),
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -43,7 +47,8 @@ impl IntoResponse for AppError {
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found"),
             Self::Conflict(_) => (StatusCode::CONFLICT, "conflict"),
             Self::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
-            Self::Database(_) | Self::Redis(_) | Self::Internal(_) => {
+            Self::Gone(_) => (StatusCode::GONE, "gone"),
+            Self::Database(_) | Self::Redis(_) | Self::LiveKit(_) | Self::Internal(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
             }
         };

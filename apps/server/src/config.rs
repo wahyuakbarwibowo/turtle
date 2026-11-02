@@ -11,6 +11,12 @@ pub struct Config {
     /// Set `Secure` on cookies. Must be true behind HTTPS in production.
     pub cookie_secure: bool,
     pub session_ttl_hours: i64,
+    /// Server-to-server LiveKit API URL (e.g. http://livekit:7880).
+    pub livekit_api_url: String,
+    /// WebSocket URL handed to browsers (e.g. wss://rtc.example.com).
+    pub livekit_public_url: String,
+    pub livekit_api_key: String,
+    pub livekit_api_secret: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -37,6 +43,10 @@ impl Config {
             redis_url: var("REDIS_URL")?,
             cookie_secure: var_or("COOKIE_SECURE", true)?,
             session_ttl_hours: var_or("SESSION_TTL_HOURS", 24 * 7)?,
+            livekit_api_url: var("LIVEKIT_API_URL")?,
+            livekit_public_url: var("LIVEKIT_PUBLIC_URL")?,
+            livekit_api_key: var("LIVEKIT_API_KEY")?,
+            livekit_api_secret: var("LIVEKIT_API_SECRET")?,
         })
     }
 }

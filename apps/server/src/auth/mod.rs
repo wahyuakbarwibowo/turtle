@@ -43,3 +43,18 @@ impl FromRequestParts<AppState> for AdminUser {
         Ok(AdminUser(user))
     }
 }
+
+/// Extractor: the signed-in user if any; never rejects (for guest-capable routes).
+pub struct MaybeUser(pub Option<User>);
+
+impl FromRequestParts<AppState> for MaybeUser {
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        match CurrentUser::from_request_parts(parts, state).await {
+            Ok(CurrentUser(u)) => Ok(MaybeUser(Some(u))),
+            Err(AppError::Unauthorized) => Ok(MaybeUser(None)),
+            Err(e) => Err(e),
+        }
+    }
+}

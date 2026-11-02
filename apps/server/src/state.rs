@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use database::PgPool;
+use livekit_client::LiveKit;
 use redis::aio::ConnectionManager;
 
 use crate::config::Config;
@@ -10,4 +11,5 @@ pub struct AppState {
     pub db: PgPool,
     pub redis: ConnectionManager,
     pub config: Arc<Config>,
+    pub livekit: Arc<LiveKit>,
 }
