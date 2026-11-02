@@ -22,12 +22,22 @@ export type Meeting = z.infer<typeof meetingSchema>;
 
 export const joinInfoSchema = z.object({
   token: z.string(),
+  participant_token: z.string(),
   livekit_url: z.string(),
   identity: z.string(),
   role: z.enum(["host", "participant"]),
   meeting: meetingSchema,
 });
 export type JoinInfo = z.infer<typeof joinInfoSchema>;
+
+export const chatMessageSchema = z.object({
+  id: z.uuid(),
+  identity: z.string().nullable(),
+  display_name: z.string().nullable(),
+  body: z.string(),
+  created_at: z.string(),
+});
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
 export class ApiError extends Error {
   constructor(
@@ -41,10 +51,17 @@ export class ApiError extends Error {
 
 const errorSchema = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
 
-async function request<T>(path: string, schema: z.ZodType<T> | null, init?: { method?: string; body?: unknown }): Promise<T> {
+async function request<T>(
+  path: string,
+  schema: z.ZodType<T> | null,
+  init?: { method?: string; body?: unknown; bearer?: string },
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (init?.body !== undefined) headers["content-type"] = "application/json";
+  if (init?.bearer) headers.authorization = `Bearer ${init.bearer}`;
   const res = await fetch(`/api${path}`, {
     method: init?.method ?? "GET",
-    headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
+    headers,
     body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
     credentials: "same-origin",
   });
@@ -69,6 +86,14 @@ export const api = {
   join: (code: string, display_name?: string) =>
     request(`/meetings/${encodeURIComponent(code)}/join`, joinInfoSchema, { method: "POST", body: { display_name } }),
   endMeeting: (code: string) => request(`/meetings/${encodeURIComponent(code)}/end`, null, { method: "POST" }),
+  chatHistory: (code: string, participantToken: string) =>
+    request(`/meetings/${encodeURIComponent(code)}/chat`, z.array(chatMessageSchema), { bearer: participantToken }),
+  sendChat: (code: string, participantToken: string, body: string) =>
+    request(`/meetings/${encodeURIComponent(code)}/chat`, chatMessageSchema, {
+      method: "POST",
+      body: { body },
+      bearer: participantToken,
+    }),
   removeParticipant: (code: string, identity: string) =>
     request(
       `/meetings/${encodeURIComponent(code)}/participants/${encodeURIComponent(identity)}/remove`,

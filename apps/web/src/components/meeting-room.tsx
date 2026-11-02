@@ -2,7 +2,7 @@
 
 import "@livekit/components-styles";
 
-import { LiveKitRoom, type LocalUserChoices, PreJoin, VideoConference } from "@livekit/components-react";
+import { LiveKitRoom, type LocalUserChoices, PreJoin } from "@livekit/components-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DisconnectReason, type RoomOptions, VideoPresets } from "livekit-client";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { CallLayout } from "@/components/call/call-layout";
 import { Logo } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { ApiError, type JoinInfo, api } from "@/lib/api";
@@ -132,11 +133,6 @@ function InCall({
     [choices.videoEnabled, choices.videoDeviceId],
   );
 
-  async function copyInvite() {
-    await navigator.clipboard.writeText(`${window.location.origin}/m/${join.meeting.code}`);
-    toast.success("Invite link copied");
-  }
-
   return (
     <LiveKitRoom
       data-lk-theme="default"
@@ -151,10 +147,7 @@ function InCall({
       onDisconnected={onLeave}
       onError={(e) => toast.error(e.message)}
     >
-      <Button variant="secondary" size="sm" className="absolute top-3 right-3 z-10" onClick={copyInvite}>
-        Copy invite link
-      </Button>
-      <VideoConference />
+      <CallLayout join={join} />
     </LiveKitRoom>
   );
 }
