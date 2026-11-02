@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
+// Browser talks to the Rust API through this origin, so the HTTP-only
+// session cookie stays first-party and no CORS is needed.
+const apiUrl = process.env.API_URL ?? "http://127.0.0.1:8080";
+
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
@@ -11,6 +14,9 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  async rewrites() {
+    return [{ source: "/api/:path*", destination: `${apiUrl}/api/:path*` }];
   },
 };
 
