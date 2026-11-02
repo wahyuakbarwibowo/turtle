@@ -55,11 +55,55 @@ log("5. host receives remote video frames");
 await host.waitForTimeout(1500);
 await host.screenshot({ path: `${OUT}/host.png` });
 
-await guest.locator(".lk-disconnect-button").click();
-await guest.getByText("You left the meeting").waitFor();
-log("6. guest left -> sees left screen");
-await host.waitForFunction(() => document.querySelectorAll(".lk-participant-tile").length === 1, null, { timeout: 15000 });
-log("7. host grid back to 1 tile");
+// --- Chat: guest sends, host gets a live unread badge, then sees it in the panel.
+await guest.getByRole("button", { name: /Chat/ }).click();
+await guest.getByLabel("Message").fill("hello from the guest");
+await guest.getByRole("button", { name: "Send" }).click();
+await guest.locator("[data-testid=chat-messages]").getByText("hello from the guest").waitFor();
+await host.getByLabel("1 unread").waitFor({ timeout: 10000 });
+await host.getByRole("button", { name: /Chat/ }).click();
+await host.locator("[data-testid=chat-messages]").getByText("hello from the guest").waitFor();
+log("6. chat delivered live (unread badge + panel)");
+
+// History is persisted: a fresh load of the panel still shows it.
+await host.getByLabel("Message").fill("welcome!");
+await host.getByRole("button", { name: "Send" }).click();
+await guest.locator("[data-testid=chat-messages]").getByText("welcome!").waitFor();
+log("7. host reply delivered to guest");
+
+// --- Screen share switches the stage to a focus layout.
+await host.getByRole("button", { name: /Share screen/ }).click();
+await guest.locator(".lk-focus-layout").waitFor({ timeout: 15000 });
+log("8. guest sees host screen share in focus layout");
+await host.getByRole("button", { name: /Stop screen share/ }).click();
+await guest.locator(".lk-focus-layout").waitFor({ state: "detached", timeout: 15000 });
+
+// --- People panel + host removes guest.
+await host.getByRole("button", { name: "2" }).click();
+const people = host.locator("[data-testid=people-list]");
+await people.getByText("Host", { exact: true }).waitFor();
+await people.getByText("Guest Tortoise").waitFor();
+await host.screenshot({ path: `${OUT}/host-panel.png` });
+host.once("dialog", (d) => d.accept());
+await people.getByRole("button", { name: "Remove" }).click();
+await guest.getByText("You were removed from the meeting by the host").waitFor({ timeout: 15000 });
+log("9. host removed guest -> guest sees removed screen (no rejoin button)");
+if (await guest.getByRole("button", { name: "Rejoin" }).count()) throw new Error("removed guest offered rejoin");
+
+// --- Persisted history survives a reload of the meeting.
+await host.reload();
+await host.getByRole("button", { name: "Join now" }).click();
+await host.getByRole("button", { name: /Chat/ }).click();
+await host.locator("[data-testid=chat-messages]").getByText("hello from the guest").waitFor();
+log("10. chat history persisted across rejoin");
+
+// --- Host ends the meeting for everyone.
+host.once("dialog", (d) => d.accept());
+await host.getByRole("button", { name: "End for all" }).click();
+await host.getByText("The host ended the meeting").waitFor({ timeout: 15000 });
+await host.goto(`${BASE}/m/${code}`);
+await host.getByText("This meeting has ended").waitFor();
+log("11. host ended meeting; link now shows ended");
 console.log("CODE=" + code);
 await browser.close();
 if (errors.length) {
