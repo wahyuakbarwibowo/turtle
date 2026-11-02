@@ -20,6 +20,8 @@ use crate::{
 pub const MAX_PARTICIPANTS: u32 = 100;
 /// Only used to connect; LiveKit refreshes tokens on its own for reconnects.
 const JOIN_TOKEN_TTL: Duration = Duration::from_secs(15 * 60);
+/// Authenticates in-meeting API calls (chat); outlives any realistic meeting.
+const PARTICIPANT_TOKEN_TTL: Duration = Duration::from_secs(12 * 3600);
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct Meeting {
@@ -35,6 +37,8 @@ pub struct Meeting {
 #[derive(Debug, Serialize)]
 pub struct JoinInfo {
     pub token: String,
+    /// Bearer token for our own in-meeting endpoints (chat). No media rights.
+    pub participant_token: String,
     pub livekit_url: String,
     pub identity: String,
     pub role: &'static str,
@@ -155,6 +159,8 @@ pub async fn join(
         role,
         ttl: JOIN_TOKEN_TTL,
     })?;
+    let participant_token =
+        lk.participant_token(&meeting.code, &identity, PARTICIPANT_TOKEN_TTL)?;
 
     let mut tx = db.begin().await?;
     sqlx::query(
@@ -187,6 +193,7 @@ pub async fn join(
 
     Ok(JoinInfo {
         token,
+        participant_token,
         livekit_url: livekit_url.to_string(),
         identity,
         role,
