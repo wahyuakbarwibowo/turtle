@@ -142,3 +142,7 @@ docs/              See the table below
    measuring CPU, memory, bandwidth, latency and packet loss.
 3. **Next:** dashboard and admin, recording (LiveKit Egress to MinIO), background blur,
    E2EE, Indonesian/English UI, and a mobile layout.
+
+## License
+
+[MIT](LICENSE)
