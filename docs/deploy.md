@@ -31,6 +31,26 @@ docker compose -f deploy/compose.yml --env-file deploy/.env exec api \
   server integration create myapp --webhook-url https://myapp.example/hook
 ```
 
+## LiveKit API key and secret
+
+LiveKit signs every token with this pair, so the secret must be long and random. The API
+refuses to start in production (`COOKIE_SECURE=true`) if it's under 32 characters or
+still `change-me`.
+
+`make deploy-env` generates both into `deploy/.env`. To make them by hand:
+
+```bash
+echo "LIVEKIT_API_KEY=API$(openssl rand -hex 6)"      # name of the key, any short id
+echo "LIVEKIT_API_SECRET=$(openssl rand -hex 32)"     # 64 hex chars
+```
+
+Or with LiveKit's own tool: `lk generate-keys` (also `docker run --rm livekit/livekit-server generate-keys`).
+
+The same pair must reach both LiveKit and the API. In `deploy/compose.yml` both read
+`LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` from `deploy/.env`, so set them once there.
+To rotate: put new values in `deploy/.env` and run `make deploy-up`. Calls in progress
+drop and rejoin with new tokens. Never reuse `devkey` / `secret` from `livekit-server --dev`.
+
 ## Production (VPS, Ubuntu 24.04)
 
 Sizing: start with 2 vCPU / 4 GB. Capacity is not measured yet (Phase 8).
