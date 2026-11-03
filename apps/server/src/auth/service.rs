@@ -72,9 +72,7 @@ pub fn validate_display_name(name: &str) -> AppResult<String> {
 }
 
 pub(crate) async fn hash_blocking(pw: String) -> AppResult<String> {
-    tokio::task::spawn_blocking(move || password::hash(&pw))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?
+    password::blocking(move || password::hash(&pw)).await?
 }
 
 pub async fn register(db: &PgPool, creds: Credentials, display_name: &str) -> AppResult<User> {
@@ -124,9 +122,7 @@ pub async fn login(db: &PgPool, creds: Credentials, ttl_hours: i64) -> AppResult
 
     let stored = row.as_ref().map(|r| r.1.clone());
     let pw = creds.password;
-    let ok = tokio::task::spawn_blocking(move || password::verify(&pw, stored.as_deref()))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let ok = password::blocking(move || password::verify(&pw, stored.as_deref())).await?;
 
     let user_id = match row {
         Some((id, _, false)) if ok => id,

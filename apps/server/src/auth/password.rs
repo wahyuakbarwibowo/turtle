@@ -1,6 +1,8 @@
-//! Argon2id password hashing. CPU-heavy, so callers run it via `spawn_blocking`.
+//! Argon2id password hashing. CPU-heavy, so callers run it through [`blocking`].
 
 use std::sync::LazyLock;
+
+use tokio::sync::Semaphore;
 
 use argon2::{
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
@@ -12,6 +14,22 @@ use crate::error::{AppError, AppResult};
 /// Hash verified when the account doesn't exist, so login timing doesn't reveal valid emails.
 static DUMMY_HASH: LazyLock<String> =
     LazyLock::new(|| hash("dummy-password-for-timing").unwrap_or_default());
+
+/// At most one hash per core at a time. Without it, a flood of logins with random emails
+/// fills tokio's blocking pool and starves every other blocking task.
+static SLOTS: LazyLock<Semaphore> =
+    LazyLock::new(|| Semaphore::new(std::thread::available_parallelism().map_or(4, |n| n.get())));
+
+/// Run a hash/verify off the async runtime, bounded by [`SLOTS`].
+pub async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> AppResult<T> {
+    let _slot = SLOTS
+        .acquire()
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))
+}
 
 pub fn hash(password: &str) -> AppResult<String> {
     let salt = SaltString::generate(&mut OsRng);
