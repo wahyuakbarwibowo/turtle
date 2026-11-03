@@ -127,6 +127,8 @@ docs/              See the table below
 
 ## Documentation
 
+Also published at https://wahyuakbarwibowo.github.io/turtle/docs/.
+
 | Doc | For |
 |---|---|
 | [architecture.md](docs/architecture.md) | Design decisions and why |
