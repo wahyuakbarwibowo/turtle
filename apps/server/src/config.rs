@@ -17,7 +17,7 @@ pub struct Config {
     pub livekit_public_url: String,
     pub livekit_api_key: String,
     pub livekit_api_secret: String,
-    /// Let visitors create meetings without an account (Jitsi-style).
+    /// Let visitors create meetings without an account (link-only meetings).
     pub allow_guest_create: bool,
     /// Public URL of the web app, used to build embed links for integrations.
     pub public_web_url: String,

@@ -159,9 +159,9 @@ mod tests {
 
     #[test]
     fn external_id_round_trips() {
-        let id = super::identity_for("qnext", "user-42");
-        assert_eq!(super::external_id("qnext", &id), Some("user-42"));
-        assert_eq!(super::external_id("qn", &id), None);
-        assert_eq!(super::external_id("qnext", "u-123"), None);
+        let id = super::identity_for("acme", "user-42");
+        assert_eq!(super::external_id("acme", &id), Some("user-42"));
+        assert_eq!(super::external_id("ac", &id), None);
+        assert_eq!(super::external_id("acme", "u-123"), None);
     }
 }

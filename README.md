@@ -1,6 +1,6 @@
 # TurtleMeet
 
-Self-hosted video conferencing: a Jitsi Meet alternative built on a Rust API and the
+Self-hosted video conferencing built on a Rust API and the
 [LiveKit](https://livekit.io) SFU. Share a link, join from the browser, no downloads.
 
 > **Status: MVP in development.** Auth, meetings, video, chat, moderation, lobby and
@@ -43,8 +43,7 @@ Design decisions and their reasons are in [docs/architecture.md](docs/architectu
 
 ## Embed in your platform
 
-Other apps can create meetings server-to-server and show the call in an iframe,
-like Jitsi's External API:
+Other apps can create meetings server-to-server and show the call in an iframe:
 
 ```js
 // backend: POST /api/integrations/meetings/{code}/tokens  (Bearer tmk_…) → embed_url
