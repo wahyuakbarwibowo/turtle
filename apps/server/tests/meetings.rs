@@ -227,6 +227,20 @@ async fn lobby_admit_and_deny() {
     )
     .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _, _) = send_with(
+        &app,
+        "GET",
+        &format!("/api/meetings/{code}/chat"),
+        None,
+        Some(&alice_pt),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "lobby can't read chat history"
+    );
     let lobby = format!("/api/meetings/{code}/lobby");
     let (status, _, _) = send_with(&app, "GET", &lobby, None, Some(&alice_pt), None).await;
     assert_eq!(status, StatusCode::FORBIDDEN);

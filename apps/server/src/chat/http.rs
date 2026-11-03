@@ -25,7 +25,7 @@ async fn history(
     Path(code): Path<String>,
 ) -> AppResult<Json<Vec<ChatMessage>>> {
     p.check_room(&code)?;
-    Ok(Json(service::history(&s.db, &code).await?))
+    Ok(Json(service::history(&s.db, &code, &p.identity).await?))
 }
 
 async fn send(

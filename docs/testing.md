@@ -64,6 +64,7 @@ verifies the HMAC of every webhook received on :4100.
 
 ## Not yet tested
 
-- **Load:** 10/25/50/100 participants (Phase 8). There are no capacity numbers yet.
+- **Load:** only a single-laptop SFU run so far, see [load-test.md](load-test.md). No
+  capacity numbers for a real server yet.
 - **Other browsers and devices:** Firefox, Safari, mobile layouts.
 - **Networks:** behind NAT or firewalls; TURN arrives in Phase 7.

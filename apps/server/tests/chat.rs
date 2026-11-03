@@ -140,4 +140,10 @@ async fn participants_chat_and_removed_guest_is_blocked() {
         StatusCode::FORBIDDEN,
         "removed participants can't post"
     );
+    let (status, _, _) = send_with(&app, "GET", &chat, None, Some(&guest_pt), None).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "removed participants can't read history"
+    );
 }

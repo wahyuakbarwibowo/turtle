@@ -6,7 +6,8 @@ const apiUrl = process.env.API_URL ?? "http://127.0.0.1:8080";
 
 // Sites allowed to iframe /embed/* (space-separated origins). Everything else can't be framed.
 // ponytail: one global allowlist; per-integration origins need the API to serve the header.
-const embedOrigins = process.env.EMBED_ALLOWED_ORIGINS ?? "*";
+// Unset means only this site; local dev sets "*" in .env for the embed E2E.
+const embedOrigins = process.env.EMBED_ALLOWED_ORIGINS || "'self'";
 
 const nextConfig: NextConfig = {
   // Self-contained server for the Docker image (deploy/).

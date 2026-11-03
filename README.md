@@ -133,6 +133,8 @@ docs/              See the table below
 | [api.md](docs/api.md) | HTTP endpoints of the web app's API |
 | [integrations.md](docs/integrations.md) | Embedding TurtleMeet in another platform |
 | [testing.md](docs/testing.md) | Test suites and how to run them |
+| [security.md](docs/security.md) | Security review: findings and their status |
+| [load-test.md](docs/load-test.md) | Load test script and results so far |
 | [deploy.md](docs/deploy.md) | Docker stack: local test and VPS with HTTPS |
 
 ## Roadmap
