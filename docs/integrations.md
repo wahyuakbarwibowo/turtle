@@ -1,7 +1,7 @@
 # Integrations: server API + embed SDK
 
 Lets any platform (queue system, LMS, CRM, telehealth app…) create meetings for its own
-users and show the call inside its UI, the way Jitsi's External API is used.
+users and show the call inside its UI.
 
 ```
 your backend ──API key──▶ TurtleMeet API   create meeting, mint embed link per user
@@ -86,7 +86,7 @@ Without the SDK: use an `<iframe src="{embed_url}" allow="camera; microphone; di
 ```json
 { "id": "uuid", "type": "participant_joined", "created_at": "…",
   "meeting": { "code": "abc-defg-hij", "external_ref": "ticket-7" },
-  "participant": { "identity": "x-qnext-42", "external_id": "42", "name": "Budi", "role": "participant" } }
+  "participant": { "identity": "x-acme-42", "external_id": "42", "name": "Budi", "role": "participant" } }
 ```
 
 Types: `participant_joined`, `participant_left`, `meeting_ended` (no `participant`).
@@ -107,14 +107,3 @@ crypto.timingSafeEqual(Buffer.from(want), Buffer.from(signatureHeader)); // and 
 Delivery: 10s timeout, retried after 1s, 5s and 25s on non-2xx. Dedupe on `id`;
 `meeting_ended` can arrive twice (your end call and LiveKit's room close). Retries are
 in-process, so events in flight are lost if the server restarts.
-
-## Migrating from Jitsi's External API
-
-| Jitsi | TurtleMeet |
-|---|---|
-| Self-signed JWT with `moderator` | `POST …/tokens` with `role: "host"` |
-| `new JitsiMeetExternalAPI(domain, {roomName, jwt})` | `new TurtleMeetEmbed(el, {url: embed_url})` |
-| `executeCommand('hangup' / 'toggleAudio' / 'toggleVideo' / 'toggleShareScreen')` | `execute(…)` with the same names |
-| `videoConferenceJoined` / `videoConferenceLeft` | `joined` / `left` |
-| `participantJoined` / `participantLeft` / `readyToClose` | same names |
-| Prosody single-session module | built in (same `external_id` replaces the old session) |

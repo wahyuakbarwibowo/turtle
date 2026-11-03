@@ -1,5 +1,5 @@
 //! Server-to-server API for third-party platforms (queue systems, LMSs, CRMs…) that
-//! create meetings and embed TurtleMeet in their own UI, like Jitsi's External API.
+//! create meetings and embed TurtleMeet in their own UI.
 //!
 //! Flow: the platform's backend calls us with its API key to create a meeting and mint
 //! short-lived embed links for its users; its frontend loads the link in an iframe via

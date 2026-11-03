@@ -18,7 +18,7 @@ were reproduced against the code paths). Status reflects this branch.
 
 Also open: a removed **guest** can rejoin under a new guest identity unless the meeting
 has a lobby or password (accounts and embed identities are blocked). That's the
-Jitsi-style trade-off for link-only meetings.
+trade-off for link-only meetings.
 
 Checked and sound: token kinds can't be swapped (join vs participant vs embed), host
 authority comes from the database not the token, integration meetings are owned per API
