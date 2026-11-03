@@ -9,6 +9,8 @@ const apiUrl = process.env.API_URL ?? "http://127.0.0.1:8080";
 const embedOrigins = process.env.EMBED_ALLOWED_ORIGINS ?? "*";
 
 const nextConfig: NextConfig = {
+  // Self-contained server for the Docker image (deploy/).
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
