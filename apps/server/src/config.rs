@@ -40,7 +40,7 @@ fn var_or<T: std::str::FromStr>(key: &'static str, default: T) -> Result<T, Conf
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        Ok(Self {
+        let c = Self {
             bind_addr: var_or("BIND_ADDR", "0.0.0.0:8080".to_string())?,
             database_url: var("DATABASE_URL")?,
             db_max_connections: var_or("DB_MAX_CONNECTIONS", 20)?,
@@ -53,6 +53,27 @@ impl Config {
             livekit_api_secret: var("LIVEKIT_API_SECRET")?,
             allow_guest_create: var_or("ALLOW_GUEST_CREATE", false)?,
             public_web_url: var_or("PUBLIC_WEB_URL", "http://localhost:3000".to_string())?,
-        })
+        };
+        // The LiveKit secret signs every join, participant and embed token; a guessable one
+        // lets anyone mint host tokens. Enforced when cookies are Secure (production);
+        // local dev keeps `livekit-server --dev`'s "secret".
+        if c.cookie_secure && !strong_secret(&c.livekit_api_secret) {
+            return Err(ConfigError("LIVEKIT_API_SECRET (need 32+ random chars)"));
+        }
+        Ok(c)
+    }
+}
+
+fn strong_secret(s: &str) -> bool {
+    s.len() >= 32 && !s.contains("change-me")
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn weak_secrets_rejected() {
+        assert!(!super::strong_secret("secret"));
+        assert!(!super::strong_secret("change-me"));
+        assert!(super::strong_secret(&"a".repeat(32)));
     }
 }
