@@ -54,7 +54,11 @@ Backup: `docker compose -f deploy/compose.yml --env-file deploy/.env exec postgr
 
 ## Notes
 
-- `EMBED_ALLOWED_ORIGINS` is baked into the web image; rebuild after changing it.
+- `EMBED_ALLOWED_ORIGINS` is baked into the web image; rebuild after changing it. Unset
+  means no other site can embed calls.
+- With `COOKIE_SECURE=true` (the default) the API refuses to start unless
+  `LIVEKIT_API_SECRET` is 32+ characters and not `change-me`.
+- Traefik limits `/api/auth/*` to 10 requests/min per IP (burst 20).
 - TURN uses LiveKit's built-in server on UDP 3478 instead of a separate coturn. TURN over
   TLS (for networks that only allow 443) is not set up yet.
 - Media uses one UDP port (7882) and one TCP port (7881) instead of a large port range,

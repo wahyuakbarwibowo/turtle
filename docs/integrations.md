@@ -72,7 +72,8 @@ Events (`meet.on(type, fn)`, payload includes `type`):
 
 Security: the iframe only trusts messages from its direct parent and answers only to the
 origin that completed the `hello` handshake. Restrict who may frame `/embed/*` with
-`EMBED_ALLOWED_ORIGINS` on the web app (space-separated origins, default `*`). All other
+`EMBED_ALLOWED_ORIGINS` on the web app (space-separated origins; unset means only the
+TurtleMeet site itself, so set it to your integrators' origins). All other
 pages send `frame-ancestors 'self'`. The token is in the URL fragment, so it never
 reaches server logs, and the page removes it from history once read.
 
