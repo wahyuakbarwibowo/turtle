@@ -44,7 +44,8 @@ echo "LIVEKIT_API_KEY=API$(openssl rand -hex 6)"      # name of the key, any sho
 echo "LIVEKIT_API_SECRET=$(openssl rand -hex 32)"     # 64 hex chars
 ```
 
-Or with LiveKit's own tool: `lk generate-keys` (also `docker run --rm livekit/livekit-server generate-keys`).
+Or with LiveKit's own tool: `livekit-server generate-keys` (without a local install:
+`docker run --rm livekit/livekit-server generate-keys`).
 
 The same pair must reach both LiveKit and the API. In `deploy/compose.yml` both read
 `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` from `deploy/.env`, so set them once there.
