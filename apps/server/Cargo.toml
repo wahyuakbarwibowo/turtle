@@ -10,3 +10,22 @@ axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
+database.workspace = true
+livekit-client.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+sqlx.workspace = true
+chrono.workspace = true
+redis.workspace = true
+axum-extra = { version = "0.12", features = ["cookie"] }
+argon2 = { version = "0.5", features = ["std"] }
+sha2 = "0.10"
+hmac = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+cookie = "0.18"
+tower-http = { version = "0.7", features = ["trace"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

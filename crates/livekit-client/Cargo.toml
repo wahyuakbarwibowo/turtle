@@ -5,3 +5,6 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
+livekit-api = { version = "0.10", default-features = false, features = ["services", "webhooks", "rustls-tls-webpki-roots"] }
+thiserror.workspace = true
+livekit-protocol = "0.8"

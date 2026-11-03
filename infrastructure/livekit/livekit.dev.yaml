@@ -1,0 +1,15 @@
+# Local development only. Run: livekit-server --dev --config infrastructure/livekit/livekit.dev.yaml
+# --dev supplies the well-known devkey/secret pair; never use it in production.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: false
+  node_ip: 127.0.0.1
+room:
+  max_participants: 100
+webhook:
+  api_key: devkey
+  urls:
+    - http://127.0.0.1:8080/api/livekit/webhook
