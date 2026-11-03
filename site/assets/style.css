@@ -1,10 +1,7 @@
 :root {
+  color-scheme: light;
   --bg: #f7f8f5; --fg: #17201a; --muted: #5b6b60; --card: #ffffff; --line: #dfe5df;
   --accent: #1f7a4d; --accent-fg: #ffffff; --code: #eef2ee;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0f1411; --fg: #e8eee9; --muted: #9aab9f; --card: #161d18; --line: #26302a;
-          --accent: #3fbf7f; --accent-fg: #06110b; --code: #1b241e; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg);
