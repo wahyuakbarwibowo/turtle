@@ -1,0 +1,112 @@
+# Full TurtleMeet stack. Local test (http://localhost):
+#   make deploy-env && make deploy-up
+# Production (HTTPS on a VPS): see docs/deploy.md; adds compose.tls.yml.
+name: turtlemeet
+
+services:
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+    ports: ["80:80"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web
+      args:
+        EMBED_ALLOWED_ORIGINS: ${EMBED_ALLOWED_ORIGINS:-*}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.web.entrypoints=${ENTRYPOINT:-web}
+      - traefik.http.services.web.loadbalancer.server.port=3000
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/server/Dockerfile
+    environment:
+      DATABASE_URL: postgres://turtlemeet:${POSTGRES_PASSWORD}@postgres/turtlemeet
+      REDIS_URL: redis://redis:6379
+      BIND_ADDR: 0.0.0.0:8080
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOW_GUEST_CREATE: ${ALLOW_GUEST_CREATE:-true}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
+      LIVEKIT_API_URL: http://livekit:7880
+      LIVEKIT_PUBLIC_URL: ${LIVEKIT_PUBLIC_URL}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      RUST_LOG: ${RUST_LOG:-info}
+    labels:
+      # /api goes straight to the API (same origin as the web app, so cookies stay first-party).
+      - traefik.enable=true
+      - traefik.http.routers.api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.api.entrypoints=${ENTRYPOINT:-web}
+      - traefik.http.services.api.loadbalancer.server.port=8080
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:v1.9
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        keys:
+          ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          use_external_ip: ${LIVEKIT_USE_EXTERNAL_IP:-false}
+          node_ip: ${LIVEKIT_NODE_IP:-127.0.0.1}
+        turn:
+          enabled: ${TURN_ENABLED:-false}
+          domain: ${TURN_DOMAIN:-localhost}
+          udp_port: 3478
+        room:
+          max_participants: 100
+        webhook:
+          api_key: ${LIVEKIT_API_KEY}
+          urls: [http://api:8080/api/livekit/webhook]
+    # 7880 is published for local testing (ws://localhost:7880); behind TLS it goes via Traefik.
+    ports:
+      - "${LIVEKIT_WS_BIND:-127.0.0.1:7880}:7880"
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
+      - "3478:3478/udp"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.livekit.rule=Host(`${RTC_DOMAIN:-rtc.localhost}`)
+      - traefik.http.routers.livekit.entrypoints=${ENTRYPOINT:-web}
+      - traefik.http.services.livekit.loadbalancer.server.port=7880
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: turtlemeet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: turtlemeet
+    volumes: [pgdata:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U turtlemeet"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: valkey/valkey:8
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:

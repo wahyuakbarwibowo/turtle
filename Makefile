@@ -9,7 +9,8 @@ LIVEKIT_CONFIG := infrastructure/livekit/livekit.dev.yaml
 
 .DEFAULT_GOAL := help
 .PHONY: help setup env infra-up infra-down db-create dev dev-livekit dev-api dev-web \
-        fmt lint typecheck test test-unit e2e e2e-embed check build clean
+        fmt lint typecheck test test-unit e2e e2e-embed check build clean \
+        deploy-env deploy-up deploy-down deploy-logs
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -84,3 +85,22 @@ build: ## Release build of API and web
 clean: ## Remove build outputs
 	cargo clean
 	rm -rf $(WEB)/.next $(WEB)/e2e/screenshots
+
+# ---------- Deploy (Docker, see docs/deploy.md) ----------
+DC := docker compose -f deploy/compose.yml $(if $(TLS),-f deploy/compose.tls.yml) --env-file deploy/.env
+
+deploy-env: ## Create deploy/.env with fresh random secrets (keeps an existing one)
+	@test -f deploy/.env && echo "deploy/.env exists, not overwriting" || { \
+	  sed -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$$(openssl rand -hex 24)/" \
+	      -e "s/^LIVEKIT_API_KEY=.*/LIVEKIT_API_KEY=API$$(openssl rand -hex 6)/" \
+	      -e "s/^LIVEKIT_API_SECRET=.*/LIVEKIT_API_SECRET=$$(openssl rand -hex 32)/" \
+	      deploy/.env.example > deploy/.env && echo "wrote deploy/.env"; }
+
+deploy-up: ## Build and start the full stack (TLS=1 for HTTPS overlay)
+	$(DC) up -d --build
+
+deploy-down: ## Stop the stack (database volume is kept)
+	$(DC) down
+
+deploy-logs: ## Follow logs of the stack
+	$(DC) logs -f --tail=100

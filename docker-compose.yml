@@ -1,4 +1,4 @@
-# Local dev dependencies. App services (server, web, livekit, coturn) get added in Phase 7.
+# Local dev dependencies only. The full stack (API, web, LiveKit, Traefik) is in deploy/.
 services:
   postgres:
     image: postgres:18
