@@ -25,8 +25,9 @@ use crate::{
 
 /// Target capacity; LiveKit enforces it per room.
 pub const MAX_PARTICIPANTS: u32 = 100;
-/// Only used to connect; LiveKit refreshes tokens on its own for reconnects.
-const JOIN_TOKEN_TTL: Duration = Duration::from_secs(15 * 60);
+/// Only used to connect; LiveKit refreshes tokens on its own for reconnects. Short, so a
+/// removed participant can't reuse a saved join token to get back into the room.
+const JOIN_TOKEN_TTL: Duration = Duration::from_secs(60);
 /// Authenticates in-meeting API calls (chat, moderation, lobby polling).
 const PARTICIPANT_TOKEN_TTL: Duration = Duration::from_secs(12 * 3600);
 /// Lobby requests not polled within this window are treated as abandoned.
@@ -314,9 +315,7 @@ pub async fn join(
         }
         if let Some(hash) = password_hash {
             let given = input.password.ok_or(AppError::PasswordRequired)?.to_owned();
-            let ok = tokio::task::spawn_blocking(move || password::verify(&given, Some(&hash)))
-                .await
-                .map_err(|e| AppError::Internal(e.to_string()))?;
+            let ok = password::blocking(move || password::verify(&given, Some(&hash))).await?;
             if !ok {
                 return Err(AppError::InvalidPassword);
             }
