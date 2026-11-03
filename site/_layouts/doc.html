@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page.title }} · TurtleMeet docs</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐢</text></svg>">
+<link rel="stylesheet" href="{{ '/assets/style.css' | relative_url }}">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="{{ '/' | relative_url }}">🐢 TurtleMeet</a>
+    <nav>
+      <a href="{{ '/docs/' | relative_url }}">Docs</a>
+      <a class="gh" href="https://github.com/wahyuakbarwibowo/turtle">GitHub</a>
+    </nav>
+  </header>
+  <div class="doc">
+    <aside>
+      {% assign docs = "index:Overview,deploy:Deployment,integrations:Integrations,api:API reference,architecture:Architecture,security:Security,load-test:Load test,testing:Testing" | split: "," %}
+      {% for d in docs %}{% assign kv = d | split: ":" %}
+      {% if kv[0] == "index" %}{% assign href = "/docs/" %}{% else %}{% assign href = "/docs/" | append: kv[0] | append: ".html" %}{% endif %}
+      <a href="{{ href | relative_url }}"{% if page.url == href %} class="on"{% endif %}>{{ kv[1] }}</a>
+      {% endfor %}
+    </aside>
+    <article>{{ content }}</article>
+  </div>
+  <footer>MIT licensed · <a href="https://github.com/wahyuakbarwibowo/turtle/edit/main/{% if page.name == 'index.md' %}site/docs/index.md{% else %}docs/{{ page.name }}{% endif %}">Edit this page</a></footer>
+</div>
+</body>
+</html>

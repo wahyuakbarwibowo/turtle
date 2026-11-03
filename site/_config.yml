@@ -1,0 +1,8 @@
+title: TurtleMeet
+# docs/*.md are copied into site/docs/ by the pages workflow and rendered with this layout.
+# jekyll-optional-front-matter, -titles-from-headings and -relative-links (on by default
+# on GitHub Pages) turn plain Markdown into pages and `foo.md` links into `foo.html`.
+defaults:
+  - scope: { path: "docs" }
+    values: { layout: doc }
+exclude: [README.md]
