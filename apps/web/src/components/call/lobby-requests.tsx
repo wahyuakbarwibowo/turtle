@@ -21,7 +21,10 @@ export function LobbyRequests({ code, participantToken }: { code: string; partic
     queryFn: () => api.lobby(code, participantToken),
     refetchInterval: 5000,
   });
-  useDataChannel(LOBBY_TOPIC, () => qc.invalidateQueries({ queryKey: key }));
+  // Server-sent only; ignore participants publishing on the topic.
+  useDataChannel(LOBBY_TOPIC, (msg) => {
+    if (!msg.from) qc.invalidateQueries({ queryKey: key });
+  });
 
   const decide = useMutation({
     mutationFn: ({ identity, admit }: { identity: string; admit: boolean }) =>

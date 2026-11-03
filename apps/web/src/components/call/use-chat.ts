@@ -30,6 +30,9 @@ export function useChat(code: string, participantToken: string, panelOpen: boole
   );
 
   useDataChannel(CHAT_TOPIC, (packet) => {
+    // Only the server broadcasts chat (no sender). A participant could publish on this topic
+    // directly and spoof another name, so drop anything a participant sent.
+    if (packet.from) return;
     const parsed = chatMessageSchema.safeParse(JSON.parse(decoder.decode(packet.payload)));
     if (!parsed.success) return;
     append(parsed.data);
