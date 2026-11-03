@@ -21,7 +21,7 @@ Self-hosted video conferencing: a Jitsi Meet alternative built on a Rust API and
 | Integrations | API keys for other platforms, embed links, iframe SDK with events/commands, HMAC-signed webhooks ([docs](docs/integrations.md)) |
 | Security | Rate limiting (Redis), audit log, CSRF protection, room-scoped tokens, LiveKit secrets never reach the browser |
 
-Not yet: production Docker deployment, recording, E2EE,
+Not yet: recording, E2EE,
 background blur, i18n, mobile layout. See [Roadmap](#roadmap).
 
 ## Architecture
@@ -133,11 +133,12 @@ docs/              See the table below
 | [api.md](docs/api.md) | HTTP endpoints of the web app's API |
 | [integrations.md](docs/integrations.md) | Embedding TurtleMeet in another platform |
 | [testing.md](docs/testing.md) | Test suites and how to run them |
+| [deploy.md](docs/deploy.md) | Docker stack: local test and VPS with HTTPS |
 
 ## Roadmap
 
-1. **Phase 7: one-command deployment.** Dockerfiles, a full Compose stack (Traefik with
-   automatic HTTPS, coturn TURN, LiveKit), and a VPS guide for Ubuntu 24.04.
+1. **Phase 7: one-command deployment** (in progress): Docker stack in `deploy/`, see
+   [docs/deploy.md](docs/deploy.md). Not yet tested on a real VPS.
 2. **Phase 8: load test and security review.** Tests at 10/25/50/100 participants,
    measuring CPU, memory, bandwidth, latency and packet loss.
 3. **Next:** dashboard and admin, recording (LiveKit Egress to MinIO), background blur,
