@@ -29,7 +29,32 @@ fn validate_body(body: &str) -> AppResult<&str> {
 }
 
 /// Most recent messages, oldest first.
-pub async fn history(db: &PgPool, code: &str) -> AppResult<Vec<ChatMessage>> {
+/// The caller's latest join row, only if it's admitted, not removed, and the meeting is live.
+/// Lobby, denied and removed participants still hold a valid participant token, so every
+/// chat endpoint must check this, not just the token's room.
+async fn active_participant(
+    db: &PgPool,
+    code: &str,
+    identity: &str,
+) -> AppResult<Option<(Uuid, Uuid, String)>> {
+    let row: Option<(Uuid, Uuid, String, bool)> = sqlx::query_as(
+        "SELECT p.id, p.meeting_id, p.display_name,
+                p.status = 'admitted' AND p.removed_at IS NULL AND m.ended_at IS NULL
+         FROM meeting_participants p JOIN meetings m ON m.id = p.meeting_id
+         WHERE m.code = $1 AND p.identity = $2
+         ORDER BY p.joined_at DESC LIMIT 1",
+    )
+    .bind(code)
+    .bind(identity)
+    .fetch_optional(db)
+    .await?;
+    Ok(row.and_then(|(p, m, n, ok)| ok.then_some((p, m, n))))
+}
+
+pub async fn history(db: &PgPool, code: &str, identity: &str) -> AppResult<Vec<ChatMessage>> {
+    if active_participant(db, code, identity).await?.is_none() {
+        return Err(AppError::Forbidden);
+    }
     Ok(sqlx::query_as(
         "SELECT * FROM (
            SELECT c.id, p.identity, p.display_name, c.body, c.created_at
@@ -55,18 +80,7 @@ pub async fn send(
     body: &str,
 ) -> AppResult<ChatMessage> {
     let body = validate_body(body)?;
-    // Latest join row for this identity; removed participants and ended meetings can't post.
-    let sender: Option<(Uuid, Uuid, String)> = sqlx::query_as(
-        "SELECT p.id, p.meeting_id, p.display_name FROM meeting_participants p
-         JOIN meetings m ON m.id = p.meeting_id
-         WHERE m.code = $1 AND p.identity = $2 AND p.status = 'admitted'
-           AND p.removed_at IS NULL AND m.ended_at IS NULL
-         ORDER BY p.joined_at DESC LIMIT 1",
-    )
-    .bind(code)
-    .bind(identity)
-    .fetch_optional(db)
-    .await?;
+    let sender = active_participant(db, code, identity).await?;
     let (participant_id, meeting_id, display_name) = sender.ok_or(AppError::Forbidden)?;
 
     let (id, created_at): (Uuid, DateTime<Utc>) = sqlx::query_as(
